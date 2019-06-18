@@ -1,5 +1,3 @@
-
-
 /* created macro to designate which dataset being used: FormA.csv (A), FormB.csv (B), Domains FormA.csv (DA), Domains FormB.csv (DB)*/
 %Let x = A; /* Select Form A or B */
 
@@ -91,12 +89,69 @@ run;
 
 proc sort data = combinedfull out= combinedsorted;
  by Students;
+ where Students > 0 ;
  run;
 
 Title "Step 5: Student Scores (Overall and by Domain Number)";
-Proc print data= combinedsorted (firstobs=7 obs=30) Label noobs;
-var Students DomainNum formName percent Total_score;
+Proc print data= combinedsorted(obs=24) Label noobs ;
+var Students DomainNum formName percent Total_Score;
 label Students="Student" DomainNum= "Domain Number" Total_Score="Student Scores" percent="Student Percents" formName="Form";
+run;
+
+
+data combinedsortedwide;
+	set combinedsorted;
+	
+	array domain_array(12) Domain1-Domain12;
+	retain Domain1-Domain12;
+	
+	by Students;
+	
+	if first.Students then i=0;
+	
+	i+1;
+	domain_array(i)= Total_Score;
+	i+1;
+	domain_array(i)= percent;
+	if last.Students then output;
+	drop percent Total_Score i;
+	label formName = "Form" Domain1= "Overall Score" Domain2= "Overall Percentage" Domain3= "Domain 1 Score" Domain4="Domain 1 Percentage" Domain5="Domain 2 score" Domain6="Domain 2 Percentage" Domain7="Domain 3 Score" Domain8="Domain 3 Pecentage" Domain9="Domain 4 Score" Domain10="Domain 4 Percentage" Domain11="Domain 5 Score" Domain12="Domain 5 Percentage";
+run;
+
+title "Step 6: Student Scores/Percentages -- One per Row";
+proc print data=combinedsortedwide (obs=4) noobs label;
+var Students formName Domain1-Domain12;
+format Domain2 Percent7.1 Domain4 Percent7.1 Domain6 Percent7.1 Domain8 Percent7.1 Domain10 Percent7.1 Domain12 Percent7.1;
+run;
+
+title"Step 7: Side-by-Side box plot";
+/* Create side-by-side box plot of exam scores*/
+proc sgplot data=combinedsorted;
+title"Section A - Student Scores";
+title2"Boxplots of Student Percentages for the Five Domains";
+	vbox percent/category= DomainNum;
+	xaxis label = "Domain";
+	yaxis label = "Student Percentages";
+run;
+
+
+proc sort data = combined out= correctedA;
+ by formName;
+ where formName = "A" ;
+ run;
+
+proc means data= correctedA mean noprint;
+var Scores;
+class QuestionNum;
+id formName;
+output out= correct (drop=_TYPE_ _FREQ_) mean=percentright; 
+ways 1;
+run;
+
+title "Percent correct for each question";
+proc print data= correct (obs=15) label;
+Var formName QuestionNum percentright;
+label formName="Form" QuestionNum="QuestNum" percentright="QuestionPercent"; 
 run;
 
 
